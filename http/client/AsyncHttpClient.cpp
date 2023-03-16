@@ -78,6 +78,12 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
             auto& req = ctx->task->req;
             auto& resp = ctx->resp;
             bool keepalive = req->IsKeepAlive() && resp->IsKeepAlive();
+
+            if (keepalive) {
+                // NOTE: add into conn_pools to reuse
+                // hlogd("add into conn_pools");
+                conn_pools[channel->peeraddr()].add(channel->fd());
+            } 
             if (req->redirect && HTTP_STATUS_IS_REDIRECT(resp->status_code)) {
                 std::string location = resp->headers["Location"];
                 if (!location.empty()) {
@@ -91,11 +97,7 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
             } else {
                 ctx->successCallback();
             }
-            if (keepalive) {
-                // NOTE: add into conn_pools to reuse
-                // hlogd("add into conn_pools");
-                conn_pools[channel->peeraddr()].add(channel->fd());
-            } else {
+            if (!keepalive) {
                 channel->close();
             }
         }
